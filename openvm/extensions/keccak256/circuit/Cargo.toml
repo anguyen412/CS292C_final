@@ -1,0 +1,46 @@
+[package]
+name = "openvm-keccak256-circuit"
+description = "OpenVM circuit extension for keccak256"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+repository.workspace = true
+
+[dependencies]
+openvm-stark-backend = { workspace = true }
+openvm-stark-sdk = { workspace = true }
+openvm-circuit-primitives = { workspace = true }
+openvm-circuit-primitives-derive = { workspace = true }
+openvm-circuit = { workspace = true }
+openvm-circuit-derive = { workspace = true }
+openvm-instructions = { workspace = true }
+openvm-rv32im-circuit = { workspace = true }
+openvm-keccak256-transpiler = { workspace = true }
+
+p3-keccak-air = { workspace = true }
+
+strum.workspace = true
+tiny-keccak.workspace = true
+itertools.workspace = true
+tracing.workspace = true
+derive-new.workspace = true
+derive_more = { workspace = true, features = ["from"] }
+rand.workspace = true
+serde.workspace = true
+serde-big-array.workspace = true
+
+[dev-dependencies]
+openvm-stark-sdk = { workspace = true }
+openvm-circuit = { workspace = true, features = ["test-utils"] }
+hex.workspace = true
+
+[features]
+default = ["parallel", "jemalloc"]
+parallel = ["openvm-circuit/parallel"]
+test-utils = ["openvm-circuit/test-utils"]
+# performance features:
+mimalloc = ["openvm-circuit/mimalloc"]
+jemalloc = ["openvm-circuit/jemalloc"]
+jemalloc-prof = ["openvm-circuit/jemalloc-prof"]
+nightly-features = ["openvm-circuit/nightly-features"]

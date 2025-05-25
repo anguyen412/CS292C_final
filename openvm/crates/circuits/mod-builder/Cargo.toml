@@ -1,0 +1,38 @@
+[package]
+name = "openvm-mod-circuit-builder"
+description = "Modular arithmetic framework for building OpenVM circuits."
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+repository.workspace = true
+license.workspace = true
+
+[dependencies]
+openvm-stark-backend = { workspace = true }
+openvm-circuit-primitives = { workspace = true }
+openvm-stark-sdk = { workspace = true }
+openvm-circuit = { workspace = true }
+openvm-instructions = { workspace = true }
+halo2curves-axiom = { workspace = true, optional = true }
+openvm-pairing-guest = { workspace = true, optional = true }
+
+rand.workspace = true
+num-bigint.workspace = true
+num-traits.workspace = true
+tracing.workspace = true
+
+itertools.workspace = true
+serde = { workspace = true, features = ["derive"] }
+serde_with.workspace = true
+
+[dev-dependencies]
+openvm-circuit-primitives = { workspace = true }
+openvm-pairing-guest = { workspace = true, features = ["halo2curves"] }
+halo2curves-axiom = { workspace = true }
+openvm-circuit = { workspace = true, features = ["test-utils"] }
+
+[features]
+default = []
+parallel = ["openvm-stark-backend/parallel"]
+test-utils = ["dep:halo2curves-axiom", "dep:openvm-pairing-guest"]

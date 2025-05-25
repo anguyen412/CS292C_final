@@ -1,0 +1,54 @@
+[package]
+name = "cargo-openvm"
+description = "OpenVM CLI tools"
+readme = "README.md"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+repository.workspace = true
+license.workspace = true
+
+[build-dependencies]
+vergen = { version = "8", default-features = false, features = [
+    "build",
+    "git",
+    "git2",
+] }
+
+[dependencies]
+openvm-build = { workspace = true }
+openvm-transpiler = { workspace = true }
+openvm-native-recursion = { workspace = true }
+openvm-sdk = { workspace = true }
+openvm-stark-sdk.workspace = true
+openvm-stark-backend.workspace = true
+
+aws-sdk-s3 = "1.78"
+aws-config = "1.5"
+tokio = { version = "1.43.1", features = ["rt", "rt-multi-thread", "macros"] }
+clap = { version = "4.5.9", features = ["derive", "env"] }
+eyre.workspace = true
+tracing.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+hex = "0.4.3"
+target-lexicon = "0.12.15"
+tempfile = "3.10.1"
+toml = { workspace = true }
+bitcode.workspace = true
+
+[features]
+default = ["parallel", "jemalloc", "evm-verify", "bench-metrics"]
+evm-prove = ["openvm-sdk/evm-prove"]
+evm-verify = ["evm-prove", "openvm-sdk/evm-verify"]
+bench-metrics = ["openvm-sdk/bench-metrics"]
+# for guest profiling:
+profiling = ["openvm-sdk/profiling"]
+# performance features:
+# (rayon is always imported because of halo2, so "parallel" feature is redundant)
+parallel = ["openvm-sdk/parallel"]
+mimalloc = ["openvm-sdk/mimalloc"]
+jemalloc = ["openvm-sdk/jemalloc"]
+jemalloc-prof = ["openvm-sdk/jemalloc-prof"]
+nightly-features = ["openvm-sdk/nightly-features"]
