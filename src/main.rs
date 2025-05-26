@@ -2,15 +2,34 @@
 #[cfg(crux)] use crucible::*;
 use openvm::io::{read, reveal_u32};
 
+// BUG: missing .wrapping_add or range assertion ⇒ overflow mismatch
 #[cfg_attr(crux, crux::test)]
 fn main() {
-    let n: u64 = read();
-    
-    let (mut a, mut b) = (0u64, 1u64);
-    for _ in 0..=n {                // <=  ← error
-        let c = a.wrapping_add(b);
-        a = b;  b = c;
-    }
-    reveal_u32(a as u32, 0);
-    reveal_u32((a >> 32) as u32, 1);
+    let x = u32::symbolic("x");
+    reveal_u32(x, 0);
+    assert!(x == x);
+}
+
+#[cfg_attr(crux, crux::test)]
+fn overflow_test() {
+    let x = u32::symbolic("x");
+    let y = u32::symbolic("y");
+
+    let z = x + y;
+
+    assert!(z >= x && z >= y);
+}
+
+#[cfg_attr(crux, crux::test)]
+fn no_overflow_test() {
+    let x = u32::symbolic("x");
+    let y = u32::symbolic("y");
+
+    // Restrict so no overflow is possible
+    crucible_assume!(x <= 2_000_000_000);
+    crucible_assume!(y <= 2_000_000_000);
+
+    let z = x + y;
+
+    assert!(z >= x && z >= y);
 }
