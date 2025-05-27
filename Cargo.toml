@@ -5,3 +5,4 @@ edition = "2021"
 
 [dependencies]
 openvm = { path = "openvm/crates/toolchain/openvm" }
+egg = "0.10.0"
