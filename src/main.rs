@@ -1,12 +1,10 @@
 #[cfg(crux)] extern crate crucible;
 #[cfg(crux)] use crucible::*;
-use openvm::io::{read, reveal_u32};
 
 // BUG: missing .wrapping_add or range assertion ⇒ overflow mismatch
 #[cfg_attr(crux, crux::test)]
 fn main() {
     let x = u32::symbolic("x");
-    reveal_u32(x, 0);
     assert!(x == x);
 }
 
