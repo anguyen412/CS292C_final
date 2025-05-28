@@ -1,33 +1,55 @@
-#[cfg(crux)] extern crate crucible;
-#[cfg(crux)] use crucible::*;
+use egg::{*, rewrite as rw};
 
-// BUG: missing .wrapping_add or range assertion ⇒ overflow mismatch
-#[cfg_attr(crux, crux::test)]
+define_language! {
+    enum Fp4Expr {
+        "+" = Add([Id; 2]),
+        "*" = Mul([Id; 2]),
+        "-" = Sub([Id; 2]),
+        "square" = Square(Id),
+        Symbol(Symbol),
+    }
+}
+
+struct UnitCost;
+
+impl CostFunction<Fp4Expr> for UnitCost {
+    type Cost = usize;
+
+    fn cost<C>(&mut self, enode: &Fp4Expr, mut costs: C) -> usize
+    where
+        C: FnMut(Id) -> usize,
+    {
+        let base_cost = match enode {
+            Fp4Expr::Add(_) => 1,      // cost for "+"
+            Fp4Expr::Mul(_) => 10,      // cost for "*"
+            Fp4Expr::Sub(_) => 1,      // cost for "-"
+            Fp4Expr::Square(_) => 6,   // cost for "square"
+            Fp4Expr::Symbol(_) => 0,   // no cost for symbols (variables/constants)
+        };
+
+        base_cost + enode.children().iter().map(|&id| costs(id)).sum::<usize>()
+    }
+}
+
 fn main() {
-    let x = u32::symbolic("x");
-    assert!(x == x);
-}
+    let rules: &[Rewrite<Fp4Expr, ()>] = &[
+        rw!("square_add"; "(square (+ ?a ?b))" => "(+ (+ (square ?a) (square ?b)) (* 2 (* ?a ?b)))"),
+        rw!("mul_const"; "(* 2 ?a)" => "(+ ?a ?a)"),
+    ];
 
-#[cfg_attr(crux, crux::test)]
-fn overflow_test() {
-    let x = u32::symbolic("x");
-    let y = u32::symbolic("y");
+    let expr = "(* 2 a0)"; // ξ
+    let expr: RecExpr<Fp4Expr> = expr.parse().unwrap();
 
-    let z = x + y;
+    let mut egraph = EGraph::default();
+    let id = egraph.add_expr(&expr);
 
-    assert!(z >= x && z >= y);
-}
+    let runner = Runner::default().with_egraph(egraph).run(rules);
+    let cost_fn = UnitCost;
 
-#[cfg_attr(crux, crux::test)]
-fn no_overflow_test() {
-    let x = u32::symbolic("x");
-    let y = u32::symbolic("y");
+    let extractor = Extractor::new(&runner.egraph, cost_fn);
+    let (best_cost, best_expr) = extractor.find_best(id);
 
-    // Restrict so no overflow is possible
-    crucible_assume!(x <= 2_000_000_000);
-    crucible_assume!(y <= 2_000_000_000);
-
-    let z = x + y;
-
-    assert!(z >= x && z >= y);
+    println!("Original expr: {}", expr);
+    println!("Optimized expr: {}", best_expr);
+    println!("Cost: {}", best_cost);
 }
