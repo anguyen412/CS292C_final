@@ -1,12 +1,17 @@
 use egg::{*, rewrite as rw};
+use std::fs;
+use std::path::Path;
 
 define_language! {
-    enum Fp4Expr {
+    pub enum FpExpr {
+        "Fp2" = Fp2([Id; 2]),
+        "Fp3" = Fp3([Id; 3]),
         "+" = Add([Id; 2]),
         "*" = Mul([Id; 2]),
         "-" = Sub([Id; 2]),
         "constmul" = ConstMul([Id; 2]),
         "square" = Square(Id),
+        "ξ" = Xi,
         Const(u64),
         Symbol(Symbol),
     }
@@ -14,40 +19,54 @@ define_language! {
 
 struct UnitCost;
 
-impl CostFunction<Fp4Expr> for UnitCost {
+impl CostFunction<FpExpr> for UnitCost {
     type Cost = usize;
 
-    fn cost<C>(&mut self, enode: &Fp4Expr, mut costs: C) -> usize
+    fn cost<C>(&mut self, enode: &FpExpr, mut costs: C) -> usize
     where
         C: FnMut(Id) -> usize,
     {
         let base_cost = match enode {
-            Fp4Expr::Add(_) => 1,      // cost for "+"
-            Fp4Expr::Mul(_) => 10,      // cost for "*"
-            Fp4Expr::ConstMul(_) => 4,
-            Fp4Expr::Sub(_) => 1,      // cost for "-"
-            Fp4Expr::Square(_) => 6,   // cost for "square"
-            Fp4Expr::Symbol(_) => 0,   // no cost for symbols (variables/constants)
-            Fp4Expr::Const(_) => 0,
+            FpExpr::Add(_) => 1,
+            FpExpr::Mul(_) => 10,
+            FpExpr::ConstMul(_) => 4,
+            FpExpr::Sub(_) => 1,
+            FpExpr::Square(_) => 6,
+            FpExpr::Symbol(_) => 0,
+            FpExpr::Const(_) => 0,
+            _ => 0,
         };
-
         base_cost + enode.children().iter().map(|&id| costs(id)).sum::<usize>()
     }
 }
 
-fn is_const(var: &str) -> impl Fn(&mut EGraph<Fp4Expr, ()>, Id, &Subst) -> bool {
-    let var_id = var.parse().unwrap();
+fn is_const(var: &str) -> impl Fn(&mut EGraph<FpExpr, ()>, Id, &Subst) -> bool {
+    let var = var.parse().unwrap();
     move |egraph, _, subst| {
-        // Get the eclass id for the variable
-        let eclass_id = subst[var_id];
-
-        // Check if the eclass contains a Const node
-        egraph[eclass_id].nodes.iter().any(|node| matches!(node, Fp4Expr::Const(_)))
+        let eclass = subst[var];
+        egraph[eclass].nodes.iter().any(|n| matches!(n, FpExpr::Const(_)))
     }
 }
 
+fn load_benchmarks(dir: &str) -> Vec<(String, RecExpr<FpExpr>)> {
+    let mut benchmarks = Vec::new();
+    for entry in fs::read_dir(Path::new(dir)).unwrap() {
+        let entry = entry.unwrap();
+        let content = fs::read_to_string(entry.path()).unwrap();
+        let parsed = content.parse::<RecExpr<FpExpr>>().unwrap_or_else(|e| {
+            panic!("Failed to parse file {}: {}", entry.path().display(), e);
+        });
+        benchmarks.push((
+            entry.file_name().into_string().unwrap(),
+            parsed
+        ));
+    }
+    benchmarks
+}
+
 fn main() {
-    let rules: &[Rewrite<Fp4Expr, ()>] = &[
+    let benchmarks = load_benchmarks("benchmarks");
+    let rules: &[Rewrite<FpExpr, ()>] = &[
         rw!("square_add"; "(square (+ ?a ?b))" => "(+ (+ (square ?a) (square ?b)) (* 2 (* ?a ?b)))"),
         rw!("mul_const"; "(* 2 ?a)" => "(+ ?a ?a)"),
         rw!("mulsquare"; "(* ?x ?x)" => "(square ?x)"),
@@ -58,19 +77,18 @@ fn main() {
         rw!("mul_to_constmul"; "(* ?a ?b)" => "(constmul ?a ?b)" if is_const("?a")),
     ];
 
-    let expr = "(* 3 x)";
-    let expr: RecExpr<Fp4Expr> = expr.parse().unwrap();
+    for (name, expr) in benchmarks {
+        println!("\n=== Benchmark: {} ===", name);
 
-    let mut egraph = EGraph::default();
-    let id = egraph.add_expr(&expr);
+        let runner = Runner::default()
+            .with_expr(&expr)
+            .run(rules);
 
-    let runner = Runner::default().with_egraph(egraph).run(rules);
-    let cost_fn = UnitCost;
+        let extractor = Extractor::new(&runner.egraph, UnitCost);
+        let (best_cost, best_expr) = extractor.find_best(runner.roots[0]);
 
-    let extractor = Extractor::new(&runner.egraph, cost_fn);
-    let (best_cost, best_expr) = extractor.find_best(id);
-
-    println!("Original expr: {}", expr);
-    println!("Optimized expr: {}", best_expr);
-    println!("Cost: {}", best_cost);
+        println!("Original expr: {}", expr);
+        println!("Optimized expr: {}", best_expr);
+        println!("Cost: {}", best_cost);
+    }
 }
