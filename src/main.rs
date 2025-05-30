@@ -40,11 +40,16 @@ impl CostFunction<FpExpr> for UnitCost {
     }
 }
 
-fn is_const(var: &str) -> impl Fn(&mut EGraph<FpExpr, ()>, Id, &Subst) -> bool {
-    let var = var.parse().unwrap();
+fn is_const(a: &str, b: &str) -> impl Fn(&mut EGraph<FpExpr, ()>, Id, &Subst) -> bool {
+    let a = a.parse().unwrap();
+    let b = b.parse().unwrap();
     move |egraph, _, subst| {
-        let eclass = subst[var];
-        egraph[eclass].nodes.iter().any(|n| matches!(n, FpExpr::Const(_)))
+        let is_const_node = |id: Id| {
+            egraph[id].nodes.iter().any(|n| {
+                matches!(n, FpExpr::Const(_)) || matches!(n, FpExpr::Xi)
+            })
+        };
+        is_const_node(subst[a]) || is_const_node(subst[b])
     }
 }
 
@@ -69,12 +74,13 @@ fn main() {
     let rules: &[Rewrite<FpExpr, ()>] = &[
         rw!("square_add"; "(square (+ ?a ?b))" => "(+ (+ (square ?a) (square ?b)) (* 2 (* ?a ?b)))"),
         rw!("mul_const"; "(* 2 ?a)" => "(+ ?a ?a)"),
+        rw!("mul_const2"; "(constmul 2 ?a)" => "(+ ?a ?a)"),
         rw!("mulsquare"; "(* ?x ?x)" => "(square ?x)"),
         rw!(
             "two_xy_to_squares";
             "(* 2 (* ?x ?y))" => "(- (square (+ ?x ?y)) (+ (square ?x) (square ?y)))" // 2xy = (x+y)^2 - x^2 - y^2
         ),
-        rw!("mul_to_constmul"; "(* ?a ?b)" => "(constmul ?a ?b)" if is_const("?a")),
+        rw!("mul_to_constmul"; "(* ?a ?b)" => "(constmul ?a ?b)" if is_const("?a", "?b")),
     ];
 
     for (name, expr) in benchmarks {
