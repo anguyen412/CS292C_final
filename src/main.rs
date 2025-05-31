@@ -6,12 +6,18 @@ define_language! {
     pub enum FpExpr {
         "Fp2" = Fp2([Id; 2]),
         "Fp3" = Fp3([Id; 3]),
+        "Fp4" = Fp4([Id; 2]),
         "+" = Add([Id; 2]),
         "*" = Mul([Id; 2]),
         "-" = Sub([Id; 2]),
         "constmul" = ConstMul([Id; 2]),
         "square" = Square(Id),
         "ξ" = Xi,
+        "+2" = AddFp2([Id; 2]), // Fp2
+        "*2" = MulFp2([Id; 2]),
+        "-2" = SubFp2([Id; 2]),
+        "constmul2" = ConstMulFp2([Id; 2]),
+        "square2" = SquareFp2(Id),
         Const(u64),
         Symbol(Symbol),
     }
@@ -20,23 +26,32 @@ define_language! {
 struct UnitCost;
 
 impl CostFunction<FpExpr> for UnitCost {
-    type Cost = usize;
+    type Cost = f64;
 
-    fn cost<C>(&mut self, enode: &FpExpr, mut costs: C) -> usize
+    fn cost<C>(&mut self, enode: &FpExpr, mut costs: C) -> f64
     where
-        C: FnMut(Id) -> usize,
+        C: FnMut(Id) -> f64,
     {
         let base_cost = match enode {
-            FpExpr::Add(_) => 1,
-            FpExpr::Mul(_) => 10,
-            FpExpr::ConstMul(_) => 4,
-            FpExpr::Sub(_) => 1,
-            FpExpr::Square(_) => 6,
-            FpExpr::Symbol(_) => 0,
-            FpExpr::Const(_) => 0,
-            _ => 0,
+            // Fp
+            FpExpr::Add(_) => 0.1,
+            FpExpr::Sub(_) => 0.1,
+            FpExpr::Mul(_) => 1.5,
+            FpExpr::ConstMul(_) => 0.8,
+            FpExpr::Square(_) => 1.0,
+
+            // Fp2
+            FpExpr::AddFp2(_) => 1.0,
+            FpExpr::SubFp2(_) => 1.0,
+            FpExpr::MulFp2(_) => 10.0,
+            FpExpr::ConstMulFp2(_) => 4.0,
+            FpExpr::SquareFp2(_) => 6.0,
+
+            FpExpr::Symbol(_) => 0.0,
+            FpExpr::Const(_) => 0.0,
+            _ => 0.0,
         };
-        base_cost + enode.children().iter().map(|&id| costs(id)).sum::<usize>()
+        base_cost + enode.children().iter().map(|&id| costs(id)).sum::<f64>()
     }
 }
 
@@ -119,6 +134,9 @@ fn main() {
         rw!("mul_const"; "(* 2 ?a)" => "(+ ?a ?a)"),
         rw!("mul_const2"; "(constmul 2 ?a)" => "(+ ?a ?a)"),
         rw!("mulsquare"; "(* ?x ?x)" => "(square ?x)"),
+        rw!("mul_const_fp2"; "(*2 2 ?a)" => "(+2 ?a ?a)"),
+        rw!("mul_const2_fp2"; "(constmul2 2 ?a)" => "(+2 ?a ?a)"),
+        rw!("mulsquare_fp2"; "(*2 ?x ?x)" => "(square2 ?x)"),
         rw!(
             "two_xy_to_squares";
             "(* 2 (* ?x ?y))" => "(- (square (+ ?x ?y)) (+ (square ?x) (square ?y)))" // 2xy = (x+y)^2 - x^2 - y^2
