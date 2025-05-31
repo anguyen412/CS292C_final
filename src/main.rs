@@ -5,21 +5,46 @@ use std::path::Path;
 define_language! {
     pub enum FpExpr {
         "Fp2" = Fp2([Id; 2]),
-        "Fp3" = Fp3([Id; 3]),
         "Fp4" = Fp4([Id; 2]),
+        "Fp6" = Fp3([Id; 3]),
+        "ξ" = Xi,
+        Const(u64),
+        Symbol(Symbol),
+
+        // Fp
         "+" = Add([Id; 2]),
         "*" = Mul([Id; 2]),
         "-" = Sub([Id; 2]),
         "constmul" = ConstMul([Id; 2]),
         "square" = Square(Id),
-        "ξ" = Xi,
-        "+2" = AddFp2([Id; 2]), // Fp2
+        
+        // Fp2
+        "+2" = AddFp2([Id; 2]),
         "*2" = MulFp2([Id; 2]),
         "-2" = SubFp2([Id; 2]),
         "constmul2" = ConstMulFp2([Id; 2]),
         "square2" = SquareFp2(Id),
-        Const(u64),
-        Symbol(Symbol),
+
+        // Fp4
+        "+4" = AddFp4([Id; 2]),
+        "*4" = MulFp4([Id; 2]),
+        "-4" = SubFp4([Id; 2]),
+        "constmul4" = ConstMulFp4([Id; 2]),
+        "square4" = SquareFp4(Id),
+
+        // Fp6
+        "+6" = AddFp6([Id; 2]),
+        "*6" = MulFp6([Id; 2]),
+        "-6" = SubFp6([Id; 2]),
+        "constmul6" = ConstMulFp6([Id; 2]),
+        "square6" = SquareFp6(Id),
+
+        // Fp12
+        "+12" = AddFp12([Id; 2]),
+        "*12" = MulFp12([Id; 2]),
+        "-12" = SubFp12([Id; 2]),
+        "constmul12" = ConstMulFp12([Id; 2]),
+        "square12" = SquareFp12(Id),
     }
 }
 
@@ -46,6 +71,27 @@ impl CostFunction<FpExpr> for UnitCost {
             FpExpr::MulFp2(_) => 10.0,
             FpExpr::ConstMulFp2(_) => 4.0,
             FpExpr::SquareFp2(_) => 6.0,
+
+            // Fp4
+            FpExpr::AddFp4(_) => 3.0,
+            FpExpr::SubFp4(_) => 3.0,
+            FpExpr::MulFp4(_) => 40.0,
+            FpExpr::ConstMulFp4(_) => 15.0,
+            FpExpr::SquareFp4(_) => 27.0,
+
+            // Fp6
+            FpExpr::AddFp6(_) => 6.0,
+            FpExpr::SubFp6(_) => 6.0,
+            FpExpr::MulFp6(_) => 130.0,
+            FpExpr::ConstMulFp6(_) => 50.0,
+            FpExpr::SquareFp6(_) => 85.0,
+
+            // Fp12
+            FpExpr::AddFp12(_) => 12.0,
+            FpExpr::SubFp12(_) => 12.0,
+            FpExpr::MulFp12(_) => 310.0,
+            FpExpr::ConstMulFp12(_) => 120.0,
+            FpExpr::SquareFp12(_) => 200.0,
 
             FpExpr::Symbol(_) => 0.0,
             FpExpr::Const(_) => 0.0,
@@ -134,9 +180,6 @@ fn main() {
         rw!("mul_const"; "(* 2 ?a)" => "(+ ?a ?a)"),
         rw!("mul_const2"; "(constmul 2 ?a)" => "(+ ?a ?a)"),
         rw!("mulsquare"; "(* ?x ?x)" => "(square ?x)"),
-        rw!("mul_const_fp2"; "(*2 2 ?a)" => "(+2 ?a ?a)"),
-        rw!("mul_const2_fp2"; "(constmul2 2 ?a)" => "(+2 ?a ?a)"),
-        rw!("mulsquare_fp2"; "(*2 ?x ?x)" => "(square2 ?x)"),
         rw!(
             "two_xy_to_squares";
             "(* 2 (* ?x ?y))" => "(- (square (+ ?x ?y)) (+ (square ?x) (square ?y)))" // 2xy = (x+y)^2 - x^2 - y^2
@@ -147,6 +190,16 @@ fn main() {
         rw!("commute-mul"; "(* ?a ?b)" => "(* ?b ?a)"),
         rw!("assoc-add"; "(+ (+ ?a ?b) ?c)" => "(+ ?a (+ ?b ?c))"),
         rw!("assoc-mul"; "(* (* ?a ?b) ?c)" => "(* ?a (* ?b ?c))"),
+
+        // Fp2 Rules
+        rw!("mul_const_fp2"; "(*2 2 ?a)" => "(+2 ?a ?a)"),
+        rw!("mul_const2_fp2"; "(constmul2 2 ?a)" => "(+2 ?a ?a)"),
+        rw!("mulsquare_fp2"; "(*2 ?x ?x)" => "(square2 ?x)"),
+        rw!("mul_to_constmul_fp2"; "(*2 ?a ?b)" => "(constmul2 ?a ?b)" if is_const("?a", "?b")),
+        rw!("commute-add_fp2"; "(+2 ?a ?b)" => "(+2 ?b ?a)"),
+        rw!("commute-mul_fp2"; "(*2 ?a ?b)" => "(*2 ?b ?a)"),
+        rw!("assoc-add_fp2"; "(+2 (+2 ?a ?b) ?c)" => "(+2 ?a (+2 ?b ?c))"),
+        rw!("assoc-mul_fp2"; "(*2 (*2 ?a ?b) ?c)" => "(*2 ?a (*2 ?b ?c))"),
     ];
 
     for (name, expr) in benchmarks {
