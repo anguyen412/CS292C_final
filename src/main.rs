@@ -40,6 +40,49 @@ impl CostFunction<FpExpr> for UnitCost {
     }
 }
 
+/*
+struct UnitCost;
+
+impl CostFunction<FpExpr> for UnitCost {
+    type Cost = f64;
+
+    fn cost<C>(&mut self, enode: &FpExpr, mut costs: C) -> Self::Cost
+    where
+        C: FnMut(Id) -> Self::Cost,
+    {
+        let base_cost = match enode {
+            // Fp operations
+            FpExpr::Add(_) => 0.1,
+            FpExpr::Sub(_) => 0.1,
+            FpExpr::Mul(_) => 1.5,
+            FpExpr::Square(_) => 1.0,
+            FpExpr::ConstMul(_) => 0.8,
+            
+            // Fp2 operations
+            FpExpr::Fp2(_) => 0.0, // Constructor has no cost
+            _ if enode.children().len() == 2 => {
+                // Assume operations on Fp2 are more expensive
+                match enode {
+                    FpExpr::Add(_) => 1.0,
+                    FpExpr::Sub(_) => 1.0,
+                    FpExpr::Mul(_) => 10.0,
+                    FpExpr::ConstMul(_) => 4.0,
+                    FpExpr::Square(_) => 6.0,
+                    _ => 0.0,
+                }
+            },
+            
+            FpExpr::Const(_) => 0.0,
+            FpExpr::Symbol(_) => 0.0,
+            FpExpr::Xi => 0.0,
+            _ => 0.0,
+        };
+        
+        base_cost + enode.children().iter().map(|&id| costs(id)).sum::<f64>()
+    }
+}
+*/
+
 fn is_const(a: &str, b: &str) -> impl Fn(&mut EGraph<FpExpr, ()>, Id, &Subst) -> bool {
     let a = a.parse().unwrap();
     let b = b.parse().unwrap();
@@ -81,6 +124,11 @@ fn main() {
             "(* 2 (* ?x ?y))" => "(- (square (+ ?x ?y)) (+ (square ?x) (square ?y)))" // 2xy = (x+y)^2 - x^2 - y^2
         ),
         rw!("mul_to_constmul"; "(* ?a ?b)" => "(constmul ?a ?b)" if is_const("?a", "?b")),
+
+        rw!("commute-add"; "(+ ?a ?b)" => "(+ ?b ?a)"),
+        rw!("commute-mul"; "(* ?a ?b)" => "(* ?b ?a)"),
+        rw!("assoc-add"; "(+ (+ ?a ?b) ?c)" => "(+ ?a (+ ?b ?c))"),
+        rw!("assoc-mul"; "(* (* ?a ?b) ?c)" => "(* ?a (* ?b ?c))"),
     ];
 
     for (name, expr) in benchmarks {
