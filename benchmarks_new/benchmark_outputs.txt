@@ -1,0 +1,43 @@
+=== Benchmark: arith1.txt ===
+Original expr: (+ (* x y) (* x z))
+Optimized expr: (* x (+ y z))
+
+=== Benchmark: arith2.txt ===
+Original expr: (- (* a b) (* a c))
+Optimized expr: (* a (- b c))
+
+=== Benchmark: arith3.txt ===
+Original expr: (+ (* 2 x) (* 3 x))
+Optimized expr: (* x (+ 2 3))
+
+=== Benchmark: fp2_1.txt ===
+Original expr: (Fp2 (+ (* a0 b0) (* ξ a1 b1)) (+ (* a0 b1) (* a1 b0)))
+Optimized expr: (Fp2 (+ (* a0 b0) (constmul (* a1 b1) ξ)) (+ (* a0 b1) (* a1 b0)))
+
+=== Benchmark: fp2_2.txt ===
+Original expr: (Fp2 (* a0 (+ b0 b1)) (* a1 (+ b0 b1)))
+Optimized expr: (Fp2 (* a0 (+ b0 b1)) (* a1 (+ b0 b1)))
+
+=== Benchmark: constmul1.txt ===
+Original expr: (* ξ (+ x y))
+Optimized expr: (constmul (+ x y) ξ)
+
+=== Benchmark: square1.txt ===
+Original expr: (* x x)
+Optimized expr: (square x)
+
+=== Benchmark: nested1.txt ===
+Original expr: (+ (* a (+ b c)) (* d (+ b c)))
+Optimized expr: (* (+ a d) (+ b c))
+
+=== Benchmark: nested2.txt ===
+Original expr: (Fp2 (* (+ a0 a1) (+ b0 b1)) (* (- a0 a1) (- b0 b1)))
+Optimized expr: (Fp2 (* (+ a0 a1) (+ b0 b1)) (* (- a0 a1) (- b0 b1)))
+
+=== Benchmark: edge1.txt ===
+Original expr: (* x 1)
+Optimized expr: x
+
+=== Benchmark: edge2.txt ===
+Original expr: (+ x 0)
+Optimized expr: x
