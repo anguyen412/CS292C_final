@@ -3,7 +3,6 @@ use std::fs;
 use std::path::Path;
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
-use std::collections::HashSet;
 
 define_language! {
     pub enum FpExpr {
@@ -176,64 +175,88 @@ fn load_benchmarks(dir: &str) -> Vec<(String, RecExpr<FpExpr>)> {
     benchmarks
 }
 
-fn hash_subtree(expr: &RecExpr<FpExpr>, id: Id, cache: &mut HashMap<Id, u64>) -> u64 {
-    if let Some(&h) = cache.get(&id) {
-        return h;
-    }
-    let node = &expr[id];
-    let mut hasher = std::collections::hash_map::DefaultHasher::new();
-    std::mem::discriminant(node).hash(&mut hasher);
-    match node {
-        FpExpr::Const(val) => val.hash(&mut hasher),
-        FpExpr::Symbol(sym) => sym.hash(&mut hasher),
-        _ => {}
-    }
-    for &child in node.children() {
-        let child_hash = hash_subtree(expr, child, cache);
-        child_hash.hash(&mut hasher);
-    }
-    let h = hasher.finish();
-    cache.insert(id, h);
-    h
-}
-
-fn visit_subtree(expr: &RecExpr<FpExpr>, id: Id, cache: &mut HashMap<Id, u64>, hash_to_ids: &mut HashMap<u64, Vec<Id>>) {
-    let node = &expr[id];
-    for &child in node.children() {
-        visit_subtree(expr, child, cache, hash_to_ids);
-    }
-    let h = hash_subtree(expr, id, cache);
-    hash_to_ids.entry(h).or_default().push(id);
-}
-
-fn find_common_subexprs(expr: &RecExpr<FpExpr>) -> HashMap<u64, Vec<Id>> {
-    let mut hash_to_ids: HashMap<u64, Vec<Id>> = HashMap::new();
-    let mut subtree_hashes: HashMap<Id, u64> = HashMap::new();
-    let root_id = Id::from(expr.as_ref().len() - 1);
-    visit_subtree(expr, root_id, &mut subtree_hashes, &mut hash_to_ids);
-    hash_to_ids
-}
-
-fn get_cost_with_subexpressions(expr: &RecExpr<FpExpr>, common_subexprs: &HashMap<u64, Vec<Id>>) -> f64 {
-    let mut visited: HashSet<u64> = HashSet::new();
+fn extract_common_subexpressions(expr: &RecExpr<FpExpr>) -> (f64, String) {
+    let mut common_subexprs: HashMap<u64, Vec<Id>> = HashMap::new();
     let mut hash_cache: HashMap<Id, u64> = HashMap::new();
+    let mut bindings: HashMap<u64, String> = HashMap::new();
+    let mut let_defs = Vec::new();
 
-    fn cost_rec(expr: &RecExpr<FpExpr>, id: Id, visited: &mut HashSet<u64>, hash_cache: &mut HashMap<Id, u64>, common_subexprs: &HashMap<u64, Vec<Id>>) -> f64 {
-        let h = hash_subtree(expr, id, hash_cache);
-        if let Some(ids) = common_subexprs.get(&h) {
-            if ids.len() > 1 && !visited.insert(h) {
-                return 0.0;
-            }
+    fn hash_subtree(expr: &RecExpr<FpExpr>, id: Id, cache: &mut HashMap<Id, u64>) -> u64 {
+        if let Some(&h) = cache.get(&id) {
+            return h;
         }
         let node = &expr[id];
-        let mut cost_fn = UnitCost;
-        let child_costs = node.children().iter().map(|&c| cost_rec(expr, c, visited, hash_cache, common_subexprs));
-        let cost = cost_fn.cost(node, |_| 0.0);
-        cost + child_costs.sum::<f64>()
+        let mut hasher = std::collections::hash_map::DefaultHasher::new();
+        std::mem::discriminant(node).hash(&mut hasher);
+        match node {
+            FpExpr::Const(val) => val.hash(&mut hasher),
+            FpExpr::Symbol(sym) => sym.hash(&mut hasher),
+            _ => {}
+        }
+        for &child in node.children() {
+            let child_hash = hash_subtree(expr, child, cache);
+            child_hash.hash(&mut hasher);
+        }
+        let h = hasher.finish();
+        cache.insert(id, h);
+        h
     }
 
-    let root_id = Id::from(expr.as_ref().len() - 1);
-    cost_rec(expr, root_id, &mut visited, &mut hash_cache, common_subexprs)
+    fn visit_subtree(expr: &RecExpr<FpExpr>, id: Id, cache: &mut HashMap<Id, u64>, hash_to_ids: &mut HashMap<u64, Vec<Id>>) {
+        let node = &expr[id];
+        for &child in node.children() {
+            visit_subtree(expr, child, cache, hash_to_ids);
+        }
+        let h = hash_subtree(expr, id, cache);
+        hash_to_ids.entry(h).or_default().push(id);
+    }
+
+    fn helper(expr: &RecExpr<FpExpr>, id: Id, common_subexprs: &HashMap<u64, Vec<Id>>, hash_cache: &mut HashMap<Id, u64>, bindings: &mut HashMap<u64, String>, let_defs: &mut Vec<(String, String)>) -> (f64, String) {
+        let h = hash_subtree(expr, id, hash_cache);
+        let node = &expr[id];
+
+        if let Some(ids) = common_subexprs.get(&h) {
+            if ids.len() > 1 && !matches!(node, FpExpr::Const(_) | FpExpr::Symbol(_) | FpExpr::Xi) {
+                if let Some(name) = bindings.get(&h) {
+                    return (0.0, name.clone());
+                } else {
+                    let (cost, s) = helper_children(expr, node, common_subexprs, hash_cache, bindings, let_defs);
+                    let name = format!("t{}", let_defs.len());
+                    bindings.insert(h, name.clone());
+                    let_defs.push((name.clone(), s.clone()));
+                    return (cost, name);
+                }
+            }
+        }
+        helper_children(expr, node, common_subexprs, hash_cache, bindings, let_defs)
+    }
+
+    fn helper_children(expr: &RecExpr<FpExpr>, node: &FpExpr, common_subexprs: &HashMap<u64, Vec<Id>>, hash_cache: &mut HashMap<Id, u64>, bindings: &mut HashMap<u64, String>, let_defs: &mut Vec<(String, String)>) -> (f64, String) {
+        let mut cost_fn = UnitCost;
+        let mut child_strs = Vec::new();
+        let mut total_cost = 0.0;
+        for &c in node.children() {
+            let (c_cost, c_str) = helper(expr, c, common_subexprs, hash_cache, bindings, let_defs);
+            total_cost += c_cost;
+            child_strs.push(c_str);
+        }
+        let this_cost = cost_fn.cost(node, |_| 0.0);
+        let s = if child_strs.is_empty() {
+            format!("{}", node)
+        } else {
+            format!("({} {})", node.to_string(), child_strs.join(" "))
+        };
+        (this_cost + total_cost, s)
+    }
+
+    visit_subtree(expr, expr.root(), &mut hash_cache, &mut common_subexprs);
+    let (cost, main_expr) = helper(expr, expr.root(), &common_subexprs, &mut hash_cache, &mut bindings, &mut let_defs);
+
+    let mut lets = String::new();
+    for (name, rhs) in &let_defs {
+        lets.push_str(&format!("let {} = {}\n", name, rhs));
+    }
+    (cost, format!("{}{}", lets, main_expr))
 }
 
 fn main() {
@@ -257,6 +280,7 @@ fn main() {
         rw!("commute-mul"; "(* ?a ?b)" => "(* ?b ?a)"),
         rw!("assoc-add"; "(+ (+ ?a ?b) ?c)" => "(+ ?a (+ ?b ?c))"),
         rw!("assoc-mul"; "(* (* ?a ?b) ?c)" => "(* ?a (* ?b ?c))"),
+        rw!("distribute-mul"; "(* ?a (+ ?b ?c))" => "(+ (* ?a ?b) (* ?a ?c))"),
 
         // Fp2 Rules
         rw!("mul_const_fp2"; "(*2 2 ?a)" => "(+2 ?a ?a)"),
@@ -277,13 +301,11 @@ fn main() {
             .run(rules);
 
         let extractor = Extractor::new(&runner.egraph, UnitCost);
-        let (best_cost, best_expr) = extractor.find_best(runner.roots[0]);
-        let common_subexprs = find_common_subexprs(&best_expr);
-        let cost = get_cost_with_subexpressions(&best_expr, &common_subexprs);
+        let (_, best_expr) = extractor.find_best(runner.roots[0]);
+        let (best_cost, cse_expr) = extract_common_subexpressions(&best_expr);
 
         println!("Original expr: {}", expr);
-        println!("Optimized expr: {}", best_expr);
-        println!("Cost: {}", best_cost);
-        println!("Cost with common subexpression elimination: {}", cost);
+        println!("Optimized expr:\n{}", cse_expr);
+        println!("Optimized cost: {}", best_cost);
     }
 }
