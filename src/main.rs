@@ -1,12 +1,15 @@
 use egg::{*, rewrite as rw};
 use std::fs;
 use std::path::Path;
+use std::collections::HashMap;
+use std::hash::{Hash, Hasher};
+use std::collections::HashSet;
 
 define_language! {
     pub enum FpExpr {
         "Fp2" = Fp2([Id; 2]),
         "Fp4" = Fp4([Id; 2]),
-        "Fp6" = Fp3([Id; 3]),
+        "Fp6" = Fp6([Id; 3]),
         "ξ" = Xi,
         Const(u64),
         Symbol(Symbol),
@@ -173,12 +176,75 @@ fn load_benchmarks(dir: &str) -> Vec<(String, RecExpr<FpExpr>)> {
     benchmarks
 }
 
+fn hash_subtree(expr: &RecExpr<FpExpr>, id: Id, cache: &mut HashMap<Id, u64>) -> u64 {
+    if let Some(&h) = cache.get(&id) {
+        return h;
+    }
+    let node = &expr[id];
+    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+    std::mem::discriminant(node).hash(&mut hasher);
+    match node {
+        FpExpr::Const(val) => val.hash(&mut hasher),
+        FpExpr::Symbol(sym) => sym.hash(&mut hasher),
+        _ => {}
+    }
+    for &child in node.children() {
+        let child_hash = hash_subtree(expr, child, cache);
+        child_hash.hash(&mut hasher);
+    }
+    let h = hasher.finish();
+    cache.insert(id, h);
+    h
+}
+
+fn visit_subtree(expr: &RecExpr<FpExpr>, id: Id, cache: &mut HashMap<Id, u64>, hash_to_ids: &mut HashMap<u64, Vec<Id>>) {
+    let node = &expr[id];
+    for &child in node.children() {
+        visit_subtree(expr, child, cache, hash_to_ids);
+    }
+    let h = hash_subtree(expr, id, cache);
+    hash_to_ids.entry(h).or_default().push(id);
+}
+
+fn find_common_subexprs(expr: &RecExpr<FpExpr>) -> HashMap<u64, Vec<Id>> {
+    let mut hash_to_ids: HashMap<u64, Vec<Id>> = HashMap::new();
+    let mut subtree_hashes: HashMap<Id, u64> = HashMap::new();
+    let root_id = Id::from(expr.as_ref().len() - 1);
+    visit_subtree(expr, root_id, &mut subtree_hashes, &mut hash_to_ids);
+    hash_to_ids
+}
+
+fn get_cost_with_subexpressions(expr: &RecExpr<FpExpr>, common_subexprs: &HashMap<u64, Vec<Id>>) -> f64 {
+    let mut visited: HashSet<u64> = HashSet::new();
+    let mut hash_cache: HashMap<Id, u64> = HashMap::new();
+
+    fn cost_rec(expr: &RecExpr<FpExpr>, id: Id, visited: &mut HashSet<u64>, hash_cache: &mut HashMap<Id, u64>, common_subexprs: &HashMap<u64, Vec<Id>>) -> f64 {
+        let h = hash_subtree(expr, id, hash_cache);
+        if let Some(ids) = common_subexprs.get(&h) {
+            if ids.len() > 1 && !visited.insert(h) {
+                return 0.0;
+            }
+        }
+        let node = &expr[id];
+        let mut cost_fn = UnitCost;
+        let child_costs = node.children().iter().map(|&c| cost_rec(expr, c, visited, hash_cache, common_subexprs));
+        let cost = cost_fn.cost(node, |_| 0.0);
+        cost + child_costs.sum::<f64>()
+    }
+
+    let root_id = Id::from(expr.as_ref().len() - 1);
+    cost_rec(expr, root_id, &mut visited, &mut hash_cache, common_subexprs)
+}
+
 fn main() {
     let benchmarks = load_benchmarks("benchmarks");
     let rules: &[Rewrite<FpExpr, ()>] = &[
         rw!("square_add"; "(square (+ ?a ?b))" => "(+ (+ (square ?a) (square ?b)) (* 2 (* ?a ?b)))"),
         rw!("mul_const"; "(* 2 ?a)" => "(+ ?a ?a)"),
         rw!("mul_const2"; "(constmul 2 ?a)" => "(+ ?a ?a)"),
+        rw!("add_const0"; "(+ 0 ?a)" => "?a"),
+        rw!("mul_const0"; "(constmul 0 ?a)" => "0"),
+        rw!("mul_const1"; "(constmul 1 ?a)" => "?a"),
         rw!("mulsquare"; "(* ?x ?x)" => "(square ?x)"),
         rw!(
             "two_xy_to_squares";
@@ -186,6 +252,7 @@ fn main() {
         ),
         rw!("mul_to_constmul"; "(* ?a ?b)" => "(constmul ?a ?b)" if is_const("?a", "?b")),
 
+        rw!("sub-self"; "(- ?a ?a)" => "0"),
         rw!("commute-add"; "(+ ?a ?b)" => "(+ ?b ?a)"),
         rw!("commute-mul"; "(* ?a ?b)" => "(* ?b ?a)"),
         rw!("assoc-add"; "(+ (+ ?a ?b) ?c)" => "(+ ?a (+ ?b ?c))"),
@@ -211,9 +278,12 @@ fn main() {
 
         let extractor = Extractor::new(&runner.egraph, UnitCost);
         let (best_cost, best_expr) = extractor.find_best(runner.roots[0]);
+        let common_subexprs = find_common_subexprs(&best_expr);
+        let cost = get_cost_with_subexpressions(&best_expr, &common_subexprs);
 
         println!("Original expr: {}", expr);
         println!("Optimized expr: {}", best_expr);
         println!("Cost: {}", best_cost);
+        println!("Cost with common subexpression elimination: {}", cost);
     }
 }
