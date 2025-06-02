@@ -19,6 +19,7 @@ define_language! {
         "-" = Sub([Id; 2]),
         "constmul" = ConstMul([Id; 2]),
         "square" = Square(Id),
+        "inv" = Inv(Id),
         
         // Fp2
         "+2" = AddFp2([Id; 2]),
@@ -26,6 +27,7 @@ define_language! {
         "-2" = SubFp2([Id; 2]),
         "constmul2" = ConstMulFp2([Id; 2]),
         "square2" = SquareFp2(Id),
+        "inv2" = InvFp2(Id),
 
         // Fp4
         "+4" = AddFp4([Id; 2]),
@@ -66,6 +68,7 @@ impl CostFunction<FpExpr> for UnitCost {
             FpExpr::Mul(_) => 1.5,
             FpExpr::ConstMul(_) => 0.8,
             FpExpr::Square(_) => 1.0,
+            FpExpr::Inv(_) => 20.0,
 
             // Fp2
             FpExpr::AddFp2(_) => 1.0,
@@ -73,6 +76,7 @@ impl CostFunction<FpExpr> for UnitCost {
             FpExpr::MulFp2(_) => 10.0,
             FpExpr::ConstMulFp2(_) => 4.0,
             FpExpr::SquareFp2(_) => 6.0,
+            FpExpr::InvFp2(_) => 80.0,
 
             // Fp4
             FpExpr::AddFp4(_) => 3.0,
@@ -287,6 +291,14 @@ fn main() {
         rw!("mul_const2_fp2"; "(constmul2 2 ?a)" => "(+2 ?a ?a)"),
         rw!("mulsquare_fp2"; "(*2 ?x ?x)" => "(square2 ?x)"),
         rw!("mul_to_constmul_fp2"; "(*2 ?a ?b)" => "(constmul2 ?a ?b)" if is_const("?a", "?b")),
+        rw!("inv_fp2_short";
+            "(inv2 (Fp2 ?x ?y))" 
+            => 
+            "(Fp2 
+                (* ?x (inv (+ (square ?x) (square ?y)))) 
+                (* (- 0 ?y) (inv (+ (square ?x) (square ?y))))
+            )"
+        ),
         rw!("commute-add_fp2"; "(+2 ?a ?b)" => "(+2 ?b ?a)"),
         rw!("commute-mul_fp2"; "(*2 ?a ?b)" => "(*2 ?b ?a)"),
         rw!("assoc-add_fp2"; "(+2 (+2 ?a ?b) ?c)" => "(+2 ?a (+2 ?b ?c))"),
