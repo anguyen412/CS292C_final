@@ -118,10 +118,15 @@ impl CostFunction<FpExpr> for FpCost {
     where
         C: FnMut(Id) -> f64,
     {
-        let base_cost = self.cost_map
-            .get(&std::mem::discriminant(enode))
-            .cloned()
-            .unwrap_or(0.0);
+        let base_cost = match enode {
+            FpExpr::Xi => 0.0,
+            FpExpr::Const(_) => 0.0,
+            FpExpr::Symbol(_) => 0.0,
+            _ => self.cost_map
+                    .get(&std::mem::discriminant(enode))
+                    .cloned()
+                    .expect("Cost not defined for this operation"),
+        };
         base_cost + enode.children().iter().map(|&id| costs(id)).sum::<f64>()
     }
 }
