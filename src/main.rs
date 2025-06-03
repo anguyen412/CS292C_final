@@ -273,6 +273,10 @@ fn main() {
             )"
         ),
         rw!("double-inverse_fp2"; "(inv2 (inv2 ?a))" => "?a"),
+        rw!(
+            "two_xy_to_squares_fp2";
+            "(*2 2 (*2 ?x ?y))" => "(-2 (square2 (+2 ?x ?y)) (+2 (square2 ?x) (square2 ?y)))" // 2xy = (x+y)^2 - x^2 - y^2
+        ),
 
         // Addition in Fp6 (Alg 10)
         rw!("add_fp6"; "(+6 (Fp6 ?a0 ?a1 ?a2) (Fp6 ?b0 ?b1 ?b2))" => "(Fp6 (+2 ?a0 ?b0) (+2 ?a1 ?b1) (+2 ?a2 ?b2))"),
