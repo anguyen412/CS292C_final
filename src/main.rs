@@ -1,6 +1,7 @@
 use egg::{*, rewrite as rw};
 use std::fs;
 use std::path::Path;
+use std::env::args;
 
 mod dsl;
 use dsl::{*};
@@ -8,24 +9,49 @@ use dsl::{*};
 mod analysis;
 use analysis::{*};
 
+fn load_benchmark(file: &str) -> (String, RecExpr<FpExpr>) {
+    let content = fs::read_to_string(file).unwrap();
+    let parsed = content.parse::<RecExpr<FpExpr>>().unwrap_or_else(|e| {
+        panic!("Failed to parse file {}: {}", file, e);
+    });
+    let name = Path::new(file).file_name().unwrap().to_string_lossy().into_owned();
+    (name, parsed)
+}
+
 fn load_benchmarks(dir: &str) -> Vec<(String, RecExpr<FpExpr>)> {
     let mut benchmarks = Vec::new();
+    if Path::new(dir).is_file() {
+        // If the path is a file, load it directly
+        let (name, expr) = load_benchmark(dir);
+        benchmarks.push((name, expr));
+        return benchmarks;
+    }
     for entry in fs::read_dir(Path::new(dir)).unwrap() {
         let entry = entry.unwrap();
-        let content = fs::read_to_string(entry.path()).unwrap();
-        let parsed = content.parse::<RecExpr<FpExpr>>().unwrap_or_else(|e| {
-            panic!("Failed to parse file {}: {}", entry.path().display(), e);
-        });
-        benchmarks.push((
-            entry.file_name().into_string().unwrap(),
-            parsed
-        ));
+        let (name, expr) = load_benchmark(&entry.path().to_string_lossy());
+        benchmarks.push((name, expr));
     }
     benchmarks
 }
 
 fn main() {
-    let benchmarks = load_benchmarks("benchmarks");
+    let args = args().collect::<Vec<_>>();
+    if args.len() != 3 {
+        eprintln!("Usage: {} <benchmark_file_or_dir> <cost_file>", args[0]);
+        return;
+    }
+    let benchmarks_dir = &args[1];
+    let cost_file = &args[2];
+    if !Path::new(benchmarks_dir).exists() {
+        eprintln!("Benchmark file or directory does not exist: {}", benchmarks_dir);
+        return;
+    }
+    if !Path::new(cost_file).exists() {
+        eprintln!("Cost file does not exist: {}", cost_file);
+        return;
+    }
+
+    let benchmarks = load_benchmarks(benchmarks_dir);
     let rules: &[Rewrite<FpExpr, ConstantFolding>] = &[
         rw!("square_add"; "(square (+ ?a ?b))" => "(+ (+ (square ?a) (square ?b)) (* 2 (* ?a ?b)))"),
         rw!("mul_const"; "(* 2 ?a)" => "(+ ?a ?a)"),
@@ -93,7 +119,7 @@ fn main() {
 
         // Compute original cost before applying rules
         let runner = Runner::<FpExpr, ()>::default().with_expr(&expr);
-        let cf = FpCost::new("costs.json");
+        let cf = FpCost::new(cost_file);
         let extractor = Extractor::new(&runner.egraph, cf);
         let (original_cost, _) = extractor.find_best(runner.roots[0]);
 
@@ -101,7 +127,7 @@ fn main() {
             .with_expr(&expr)
             .run(rules);
 
-        let cf = FpCost::new("costs.json");
+        let cf = FpCost::new(cost_file);
         let extractor = Extractor::new(&runner.egraph, cf);
         let (_, best_expr) = extractor.find_best(runner.roots[0]);
         let (best_cost, cse_expr) = extract_common_subexpressions(&best_expr, FpCost::new("costs.json"));
