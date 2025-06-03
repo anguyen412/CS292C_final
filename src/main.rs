@@ -280,6 +280,11 @@ fn main() {
     for (name, expr) in benchmarks {
         println!("\n=== Benchmark: {} ===", name);
 
+        // Compute original cost before applying rules
+        let runner = Runner::<FpExpr, ()>::default().with_expr(&expr);
+        let extractor = Extractor::new(&runner.egraph, UnitCost);
+        let (original_cost, _) = extractor.find_best(runner.roots[0]);
+
         let runner = Runner::default()
             .with_expr(&expr)
             .run(rules);
@@ -289,6 +294,7 @@ fn main() {
         let (best_cost, cse_expr) = extract_common_subexpressions(&best_expr);
 
         println!("Original expr: {}", expr);
+        println!("Original cost: {}", original_cost);
         println!("Optimized expr:\n{}", cse_expr);
         println!("Optimized cost: {}", best_cost);
     }
