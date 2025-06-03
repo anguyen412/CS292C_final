@@ -1,0 +1,7 @@
+{
+    "Fp": {"mult": 1.5, "square": 1.0, "const_mult": 0.8, "add": 0.1, "inv": 20},
+    "Fp2": {"mult": 10, "square": 6, "const_mult": 4, "add": 1, "inv": 80},
+    "Fp4": {"mult": 40, "square": 27, "const_mult": 15, "add": 3, "inv": 320},
+    "Fp6": {"mult": 130, "square": 85, "const_mult": 50, "add": 6, "inv": 1200},
+    "Fp12": {"mult": 310, "square": 200, "const_mult": 120, "add": 12, "inv": 5000}
+}
