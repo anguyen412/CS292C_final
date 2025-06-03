@@ -242,6 +242,8 @@ fn main() {
         rw!("assoc-add"; "(+ (+ ?a ?b) ?c)" => "(+ ?a (+ ?b ?c))"),
         rw!("assoc-mul"; "(* (* ?a ?b) ?c)" => "(* ?a (* ?b ?c))"),
         rw!("distribute-mul"; "(* ?a (+ ?b ?c))" => "(+ (* ?a ?b) (* ?a ?c))"),
+        rw!("factor-out"; "(+ (* ?a ?b) (* ?a ?c))" => "(* ?a (+ ?b ?c))"),
+        rw!("double-inverse"; "(inv (inv ?a))" => "?a"),
 
         // Fp2 Rules
         rw!("mul_const_fp2"; "(*2 2 ?a)" => "(+2 ?a ?a)"),
@@ -270,6 +272,7 @@ fn main() {
                 (* (- 0 ?y) (inv (+ (square ?x) (square ?y))))
             )"
         ),
+        rw!("double-inverse_fp2"; "(inv2 (inv2 ?a))" => "?a"),
 
         // Addition in Fp6 (Alg 10)
         rw!("add_fp6"; "(+6 (Fp6 ?a0 ?a1 ?a2) (Fp6 ?b0 ?b1 ?b2))" => "(Fp6 (+2 ?a0 ?b0) (+2 ?a1 ?b1) (+2 ?a2 ?b2))"),
