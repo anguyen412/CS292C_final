@@ -242,6 +242,8 @@ fn main() {
         rw!("assoc-add"; "(+ (+ ?a ?b) ?c)" => "(+ ?a (+ ?b ?c))"),
         rw!("assoc-mul"; "(* (* ?a ?b) ?c)" => "(* ?a (* ?b ?c))"),
         rw!("distribute-mul"; "(* ?a (+ ?b ?c))" => "(+ (* ?a ?b) (* ?a ?c))"),
+        rw!("factor-out"; "(+ (* ?a ?b) (* ?a ?c))" => "(* ?a (+ ?b ?c))"),
+        rw!("double-inverse"; "(inv (inv ?a))" => "?a"),
 
         // Fp2 Rules
         rw!("mul_const_fp2"; "(*2 2 ?a)" => "(+2 ?a ?a)"),
@@ -269,6 +271,11 @@ fn main() {
                 (* ?x (inv (+ (square ?x) (square ?y)))) 
                 (* (- 0 ?y) (inv (+ (square ?x) (square ?y))))
             )"
+        ),
+        rw!("double-inverse_fp2"; "(inv2 (inv2 ?a))" => "?a"),
+        rw!(
+            "two_xy_to_squares_fp2";
+            "(*2 2 (*2 ?x ?y))" => "(-2 (square2 (+2 ?x ?y)) (+2 (square2 ?x) (square2 ?y)))" // 2xy = (x+y)^2 - x^2 - y^2
         ),
 
         // Addition in Fp6 (Alg 10)
