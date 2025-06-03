@@ -107,7 +107,36 @@ impl CostFunction<FpExpr> for UnitCost {
     }
 }
 
-fn is_const(a: &str, b: &str) -> impl Fn(&mut EGraph<FpExpr, ()>, Id, &Subst) -> bool {
+#[derive(Default)]
+struct ConstantFolding;
+impl Analysis<FpExpr> for ConstantFolding {
+    type Data = Option<u64>;
+
+    fn merge(&mut self, to: &mut Self::Data, from: Self::Data) -> DidMerge {
+        egg::merge_max(to, from)
+    }
+
+    fn make(egraph: &mut EGraph<FpExpr, Self>, enode: &FpExpr) -> Self::Data {
+        let x = |i: &Id| egraph[*i].data;
+        match enode {
+            FpExpr::Const(n) => Some(*n),
+            FpExpr::Add([a, b]) => Some(x(a)? + x(b)?),
+            FpExpr::Sub([a, b]) => Some(x(a)? - x(b)?),
+            FpExpr::ConstMul([a, b]) => Some(x(a)? * x(b)?),
+            FpExpr::Square(n) => Some(x(n)? * x(n)?),
+            _ => None,
+        }
+    }
+
+    fn modify(egraph: &mut EGraph<FpExpr, Self>, id: Id) {
+        if let Some(i) = egraph[id].data {
+            let added = egraph.add(FpExpr::Const(i));
+            egraph.union(id, added);
+        }
+    }
+}
+
+fn is_const(a: &str, b: &str) -> impl Fn(&mut EGraph<FpExpr, ConstantFolding>, Id, &Subst) -> bool {
     let a = a.parse().unwrap();
     let b = b.parse().unwrap();
     move |egraph, _, subst| {
@@ -222,7 +251,7 @@ fn extract_common_subexpressions(expr: &RecExpr<FpExpr>) -> (f64, String) {
 
 fn main() {
     let benchmarks = load_benchmarks("benchmarks");
-    let rules: &[Rewrite<FpExpr, ()>] = &[
+    let rules: &[Rewrite<FpExpr, ConstantFolding>] = &[
         rw!("square_add"; "(square (+ ?a ?b))" => "(+ (+ (square ?a) (square ?b)) (* 2 (* ?a ?b)))"),
         rw!("mul_const"; "(* 2 ?a)" => "(+ ?a ?a)"),
         rw!("mul_const2"; "(constmul 2 ?a)" => "(+ ?a ?a)"),
@@ -292,7 +321,7 @@ fn main() {
         let extractor = Extractor::new(&runner.egraph, UnitCost);
         let (original_cost, _) = extractor.find_best(runner.roots[0]);
 
-        let runner = Runner::default()
+        let runner = Runner::<FpExpr, ConstantFolding, ()>::default()
             .with_expr(&expr)
             .run(rules);
 
