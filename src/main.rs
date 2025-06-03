@@ -248,6 +248,20 @@ fn main() {
         rw!("mul_const2_fp2"; "(constmul2 2 ?a)" => "(+2 ?a ?a)"),
         rw!("mulsquare_fp2"; "(*2 ?x ?x)" => "(square2 ?x)"),
         rw!("mul_to_constmul_fp2"; "(*2 ?a ?b)" => "(constmul2 ?a ?b)" if is_const("?a", "?b")),
+        rw!("commute-add_fp2"; "(+2 ?a ?b)" => "(+2 ?b ?a)"),
+        rw!("commute-mul_fp2"; "(*2 ?a ?b)" => "(*2 ?b ?a)"),
+        rw!("assoc-add_fp2"; "(+2 (+2 ?a ?b) ?c)" => "(+2 ?a (+2 ?b ?c))"),
+        rw!("assoc-mul_fp2"; "(*2 (*2 ?a ?b) ?c)" => "(*2 ?a (*2 ?b ?c))"),
+        rw!("distribute-mul_fp2"; "(*2 ?a (+2 ?b ?c))" => "(+2 (*2 ?a ?b) (*2 ?a ?c))"),
+        rw!("factor-out_fp2"; "(+2 (*2 ?a ?b) (*2 ?a ?c))" => "(*2 ?a (+2 ?b ?c))"),
+
+        // Addition in Fp2 (Alg 5)
+        rw!("add_fp2"; "(+2 (Fp2 ?a0 ?a1) (Fp2 ?b0 ?b1))" => "(Fp2 (+ ?a0 ?b0) (+ ?a1 ?b1))"),
+        // Subtraction in Fp2 (Alg 6)
+        rw!("sub_fp2"; "(-2 (Fp2 ?a0 ?a1) (Fp2 ?b0 ?b1))" => "(Fp2 (- ?a0 ?b0) (- ?a1 ?b1))"),
+        // Subtraction in Fp2 (Alg 7)
+        rw!("mul_fp2"; "(*2 (Fp2 ?a0 ?a1) ?b0)" => "(Fp2 (* ?a0 ?b0) (* ?a1 ?b0))"),
+        // Inverse in Fp2 (Alg 8)
         rw!("inv_fp2_short";
             "(inv2 (Fp2 ?x ?y))" 
             => 
@@ -256,12 +270,11 @@ fn main() {
                 (* (- 0 ?y) (inv (+ (square ?x) (square ?y))))
             )"
         ),
-        rw!("commute-add_fp2"; "(+2 ?a ?b)" => "(+2 ?b ?a)"),
-        rw!("commute-mul_fp2"; "(*2 ?a ?b)" => "(*2 ?b ?a)"),
-        rw!("assoc-add_fp2"; "(+2 (+2 ?a ?b) ?c)" => "(+2 ?a (+2 ?b ?c))"),
-        rw!("assoc-mul_fp2"; "(*2 (*2 ?a ?b) ?c)" => "(*2 ?a (*2 ?b ?c))"),
-        rw!("distribute-mul_fp2"; "(*2 ?a (+2 ?b ?c))" => "(+2 (*2 ?a ?b) (*2 ?a ?c))"),
-        rewrite!("factor-out_fp2"; "(+2 (*2 ?a ?b) (*2 ?a ?c))" => "(*2 ?a (+2 ?b ?c))"),
+
+        // Addition in Fp6 (Alg 10)
+        rw!("add_fp6"; "(+6 (Fp6 ?a0 ?a1 ?a2) (Fp6 ?b0 ?b1 ?b2))" => "(Fp6 (+2 ?a0 ?b0) (+2 ?a1 ?b1) (+2 ?a2 ?b2))"),
+        // Subtraction in Fp6 (Alg 11)
+        rw!("sub_fp6"; "(-6 (Fp6 ?a0 ?a1 ?a2) (Fp6 ?b0 ?b1 ?b2))" => "(Fp6 (-2 ?a0 ?b0) (-2 ?a1 ?b1) (-2 ?a2 ?b2))"),
     ];
 
     for (name, expr) in benchmarks {
