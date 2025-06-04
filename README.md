@@ -1,9 +1,5 @@
 ## **Installation**
-1. Install Rust via Rustup
-2. Build the tool using
-    ```
-    cargo build
-    ```
+1. Install rustc and cargo via rustup
 
 ## **Usage**
 The main command to run our tool is
