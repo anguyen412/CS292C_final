@@ -122,6 +122,9 @@ impl CostFunction<FpExpr> for FpCost {
             FpExpr::Xi => 0.0,
             FpExpr::Const(_) => 0.0,
             FpExpr::Symbol(_) => 0.0,
+            FpExpr::Fp2(_) => 0.0,
+            FpExpr::Fp4(_) => 0.0,
+            FpExpr::Fp6(_) => 0.0,
             _ => self.cost_map
                     .get(&std::mem::discriminant(enode))
                     .cloned()
