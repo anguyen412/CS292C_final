@@ -1,0 +1,128 @@
+=== Benchmark: b1.txt ===
+Original expr: (Fp2 (- (* a0 b0) (* a1 b1)) (- (* (+ a0 a1) (+ b0 b1)) (+ (* a0 b0) (* a1 b1))))
+Original cost: 8
+Optimized expr:
+let t0 = (* a0 b0)
+let t1 = (* a1 b1)
+(Fp2 (- t0 t1) (- (* (+ a0 a1) (+ b0 b1)) (+ t0 t1)))
+Optimized cost: 5
+
+=== Benchmark: b2.txt ===
+Original expr: (Fp4 (+2 (square2 a0) (*2 (square2 a1) ξ)) (*2 2 (*2 a0 a1)))
+Original cost: 43
+Optimized expr:
+(Fp4 (+2 (square2 a0) (constmul2 (square2 a1) ξ)) (*2 a0 (+2 a1 a1)))
+Optimized cost: 28
+
+=== Benchmark: b3.txt ===
+Original expr: (Fp6 (+2 (*2 x0 y0) (*2 ξ (+2 (*2 x1 y2) (*2 x2 y1)))) (+2 (+2 (*2 x0 y1) (*2 x1 y0)) (*2 ξ (*2 x2 y2))) (+2 (+2 (*2 x0 y2) (*2 x1 y1)) (*2 x2 y0)))
+Original cost: 116
+Optimized expr:
+(Fp6 (+2 (*2 x0 y0) (constmul2 ξ (+2 (*2 x1 y2) (*2 x2 y1)))) (+2 (*2 x0 y1) (+2 (*2 y0 x1) (*2 y2 (constmul2 ξ x2)))) (+2 (*2 x1 y1) (+2 (*2 x0 y2) (*2 y0 x2))))
+Optimized cost: 104
+
+=== Benchmark: b5.txt ===
+Original expr: (inv2 (Fp2 a0 a1))
+Original cost: 80
+Optimized expr:
+let t0 = (square a0)
+let t1 = (square a1)
+let t2 = (+ t0 t1)
+let t3 = (inv t2)
+(Fp2 (* a0 t3) (* t3 (- 0 a1)))
+Optimized cost: 25.200000000000003
+
+=== Benchmark: test3.txt ===
+Original expr: (+ (square x) (square x))
+Original cost: 2.1
+Optimized expr:
+let t0 = (square x)
+(+ t0 t0)
+Optimized cost: 1.1
+
+=== Benchmark: fp2_2.txt ===
+Original expr: (Fp2 (* a0 (+ b0 b1)) (* a1 (+ b0 b1)))
+Original cost: 3.2
+Optimized expr:
+let t0 = (+ b0 b1)
+(Fp2 (* a0 t0) (* t0 a1))
+Optimized cost: 3.1
+
+=== Benchmark: constmul.txt ===
+Original expr: (* ξ (+ x y))
+Original cost: 1.6
+Optimized expr:
+(constmul ξ (+ x y))
+Optimized cost: 0.9
+
+=== Benchmark: test2.txt ===
+Original expr: (* (+ 3 (- 2 (* x x))) (- 2 (square x)))
+Original cost: 4.300000000000001
+Optimized expr:
+let t0 = (square x)
+let t1 = (- 2 t0)
+(* (+ 3 t1) t1)
+Optimized cost: 2.7
+
+=== Benchmark: arith1.txt ===
+Original expr: (+ (* x y) (* x z))
+Original cost: 3.1
+Optimized expr:
+(* x (+ y z))
+Optimized cost: 1.6
+
+=== Benchmark: arith2.txt ===
+Original expr: (+ (* 2 x) (* 3 x))
+Original cost: 3.1
+Optimized expr:
+(constmul x 5)
+Optimized cost: 0.8
+
+=== Benchmark: edge1.txt ===
+Original expr: (* x 1)
+Original cost: 1.5
+Optimized expr:
+x
+Optimized cost: 0
+
+=== Benchmark: fp6_addition.txt ===
+Original expr: (+6 (Fp6 a0 a1 a2) (Fp6 b0 b1 b2))
+Original cost: 6
+Optimized expr:
+(Fp6 (+2 a0 b0) (+2 a1 b1) (+2 a2 b2))
+Optimized cost: 3
+
+=== Benchmark: test.txt ===
+Original expr: (* x ξ)
+Original cost: 1.5
+Optimized expr:
+(constmul x ξ)
+Optimized cost: 0.8
+
+=== Benchmark: nested.txt ===
+Original expr: (+ (* a (+ b c)) (* d (+ b c)))
+Original cost: 3.3000000000000003
+Optimized expr:
+(* (+ b c) (+ a d))
+Optimized cost: 1.7
+
+=== Benchmark: example.txt ===
+Original expr: (Fp4 (+2 (square2 a0) (*2 (square2 a1) ξ)) (constmul2 2 (*2 a0 a1)))
+Original cost: 37
+Optimized expr:
+(Fp4 (+2 (square2 a0) (constmul2 (square2 a1) ξ)) (*2 a0 (+2 a1 a1)))
+Optimized cost: 28
+
+=== Benchmark: square.txt ===
+Original expr: (* x x)
+Original cost: 1.5
+Optimized expr:
+(square x)
+Optimized cost: 1
+
+=== Benchmark: edge2.txt ===
+Original expr: (+ x 0)
+Original cost: 0.1
+Optimized expr:
+x
+Optimized cost: 0
