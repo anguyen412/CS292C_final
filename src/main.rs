@@ -130,7 +130,8 @@ fn main() {
         let cf = FpCost::new(cost_file);
         let extractor = Extractor::new(&runner.egraph, cf);
         let (_, best_expr) = extractor.find_best(runner.roots[0]);
-        let (best_cost, cse_expr) = extract_common_subexpressions(&best_expr, FpCost::new("costs.json"));
+        let cf = FpCost::new(cost_file);
+        let (best_cost, cse_expr) = extract_common_subexpressions(&best_expr, cf);
 
         println!("Original expr: {}", expr);
         println!("Original cost: {}", original_cost);
