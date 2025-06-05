@@ -26,8 +26,16 @@ fn load_benchmarks(dir: &str) -> Vec<(String, RecExpr<FpExpr>)> {
         benchmarks.push((name, expr));
         return benchmarks;
     }
-    for entry in fs::read_dir(Path::new(dir)).unwrap() {
-        let entry = entry.unwrap();
+
+    let mut entries: Vec<_> = fs::read_dir(Path::new(dir))
+        .unwrap()
+        .map(|entry| entry.unwrap())
+        .collect();
+
+    // sort alphabetically by file name
+    entries.sort_by_key(|entry| entry.file_name());
+
+    for entry in entries {
         let (name, expr) = load_benchmark(&entry.path().to_string_lossy());
         benchmarks.push((name, expr));
     }
