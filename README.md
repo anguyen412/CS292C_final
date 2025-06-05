@@ -1,9 +1,14 @@
-## **Installation**
-1. Install Rust via Rustup
-2. Build the tool using
-    ```
-    cargo build
-    ```
+## Installation
+
+### 1. Install Rust via [rustup](https://rustup.rs)
+
+#### Linux / macOS / WSL
+
+Open a terminal and run:
+
+```
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+```
 
 ## **Usage**
 The main command to run our tool is
